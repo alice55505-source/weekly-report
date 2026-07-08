@@ -336,7 +336,23 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{} };
 });
 
-async function copyToClipboard(text){
+function escapeHtml(v){
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// 同時寫入 HTML 表格格式，讓手機版 Excel/Google試算表能正確辨識成多個儲存格
+// （純文字 tab 分隔在部分手機 App 上會被誤解析，造成貼上後欄位錯位）
+async function copyToClipboard(text, html){
+  if (navigator.clipboard && window.ClipboardItem && html){
+    try {
+      const item = new ClipboardItem({
+        'text/plain': new Blob([text], { type:'text/plain' }),
+        'text/html': new Blob([html], { type:'text/html' })
+      });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch(e){}
+  }
   if (navigator.clipboard && navigator.clipboard.writeText){
     try { await navigator.clipboard.writeText(text); return true; } catch(e){}
   }
@@ -356,8 +372,10 @@ async function copyToClipboard(text){
 document.getElementById('copyBtn').addEventListener('click', async () => {
   const { dataRows } = computeOutputRows();
   if (!dataRows.length) return;
-  const text = dataRows.map(row => row.slice(1).join('\t')).join('\n');
-  const ok = await copyToClipboard(text);
+  const rows = dataRows.map(row => row.slice(1));
+  const text = rows.map(r => r.join('\t')).join('\n');
+  const html = '<table>' + rows.map(r => '<tr>' + r.map(v => `<td>${escapeHtml(v)}</td>`).join('') + '</tr>').join('') + '</table>';
+  const ok = await copyToClipboard(text, html);
   const btn = document.getElementById('copyBtn');
   const original = btn.textContent;
   btn.textContent = ok ? '✅ 已複製數字' : '⚠️ 複製失敗，請手動選取';
