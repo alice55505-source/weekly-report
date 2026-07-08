@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="週報表">
+<link rel="manifest" href="manifest.json">
+<title>週報表產生器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--p:#2563eb;--pl:#93c5fd;--d:#ef4444;--w:#f59e0b;--s:#10b981;--bg:#f3f4f6;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100dvh}
+.hdr{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:16px 20px 14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.hdr h1{font-size:19px;font-weight:700;letter-spacing:-.3px}
+.hdr-sub{font-size:12.5px;opacity:.8;margin-top:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:16px}
+.card h2{font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.drop{border:2px dashed var(--bd);border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.drop:hover,.drop.drag{border-color:var(--p);background:#eff6ff}
+.drop-ico{font-size:36px;margin-bottom:8px}
+.drop-txt{font-size:14px;color:var(--mu)}
+.drop-txt b{color:var(--p)}
+input[type=file]{display:none}
+.fname{font-size:13px;color:var(--tx);margin-top:10px;font-weight:600;word-break:break-all}
+.sheet-sel{margin-top:10px;display:none;align-items:center;gap:8px;font-size:13px}
+.sheet-sel select{padding:6px 10px;border-radius:8px;border:1.5px solid var(--bd);font-size:13px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{padding:10px 18px;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s}
+.btn:active{opacity:.8}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btnp{background:var(--p);color:#fff}
+.btns{background:#f3f4f6;color:var(--tx)}
+.tablewrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bd)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{border:1px solid var(--bd);padding:6px 8px;text-align:center;white-space:pre-line;line-height:1.3}
+th{background:#f8fafc;font-weight:700;position:sticky;top:0}
+tbody tr:nth-child(even){background:#fafafa}
+td.name{text-align:left;font-weight:600;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.badge.ok{background:#d1fae5;color:#065f46}
+.badge.miss{background:#fee2e2;color:#991b1b}
+.maprow{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:13px}
+.maprow:last-child{border-bottom:none}
+.map-label{flex:0 0 140px;font-weight:600;white-space:pre-line;line-height:1.25}
+.map-arrow{color:var(--mu);flex:0 0 16px}
+.map-sel{flex:1}
+.map-sel select{width:100%;padding:7px 9px;border-radius:8px;border:1.5px solid var(--bd);font-size:13px;background:#fff}
+.empty{text-align:center;padding:40px 20px;color:var(--mu)}
+.eico{font-size:44px;margin-bottom:10px}
+.hint{font-size:12.5px;color:var(--mu);margin-top:8px;line-height:1.5}
+.footer-note{font-size:11.5px;color:var(--mu);text-align:center;padding:8px 0 24px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>📊 週報表產生器</h1>
+  <div class="hdr-sub">匯入原始 Excel，依中文項目名稱自動對應成規定格式週報表</div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>① 匯入原始檔案</h2>
+    <div class="drop" id="drop">
+      <div class="drop-ico">📁</div>
+      <div class="drop-txt"><b>點擊選擇檔案</b> 或拖曳 .xlsx 檔到這裡</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+      <div class="fname" id="fname"></div>
+    </div>
+    <div class="sheet-sel" id="sheetSel">
+      工作表：<select id="sheetPicker"></select>
+    </div>
+    <div class="hint" id="detectHint"></div>
+  </div>
+
+  <div class="card" id="mapCard" style="display:none">
+    <h2>② 欄位對應結果 <span id="mapBadge"></span></h2>
+    <div class="hint">系統依中文名稱自動對應，找不到的欄位會標紅，可用下拉選單手動調整。</div>
+    <div id="mapList" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card" id="previewCard" style="display:none">
+    <h2>③ 新表格預覽</h2>
+    <div class="tablewrap"><div id="previewTable"></div></div>
+    <div class="btnrow">
+      <button class="btn btnp" id="downloadBtn">⬇️ 下載週報表 Excel</button>
+      <button class="btn btns" id="resetBtn">🔄 重新匯入</button>
+    </div>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="eico">🗂️</div>
+    <div>選擇原始報表 Excel 檔案後，會自動產生對應的週報表</div>
+  </div>
+
+  <div class="footer-note">所有資料都在你的瀏覽器內處理，不會上傳到任何伺服器</div>
+
+</div>
+
+<script src="lib/xlsx.full.min.js"></script>
+<script>
+// ---------- 目標表格欄位設定（依截圖順序）----------
+// cat/sub 為比對用的別名清單；sub=null 表示這個欄位在來源檔案裡通常是「單一欄」而非拆年齡層
+const TARGET_COLUMNS = [
+  {key:'sunday',        label:'主日',       exportHeader:'主日',        cat:['主日'],                 sub:['小計','合計','總計']},
+  {key:'pray',          label:'禱告',       exportHeader:'禱告',        cat:['禱告'],                 sub:['小計','合計','總計']},
+  {key:'groupCount',    label:'排數',       exportHeader:'排數',        cat:['排數','排'],            sub:null},
+  {key:'smallGroup',    label:'小排',       exportHeader:'小排',        cat:['小排'],                 sub:['小計','合計','總計']},
+  {key:'gospelVisit',   label:'福音出訪',    exportHeader:'福音\n出訪',   cat:['福音出訪','福音'],       sub:['小計','合計','總計']},
+  {key:'homeVisitOut',  label:'家聚出訪',    exportHeader:'家聚\n出訪',   cat:['家聚出訪','家聚會出訪'],  sub:['小計','合計','總計']},
+  {key:'homeVisitIn',   label:'家聚受訪',    exportHeader:'家聚\n受訪',   cat:['家聚受訪','家聚會受訪'],  sub:['小計','合計','總計']},
+  {key:'lifeStudy',     label:'生命讀經',    exportHeader:'生命\n讀經',   cat:['生命讀經'],             sub:['小計','合計','總計']},
+  {key:'morning',       label:'晨興',       exportHeader:'晨興',        cat:['晨興'],                 sub:['小計','合計','總計']},
+  {key:'baptism',       label:'受浸',       exportHeader:'受浸',        cat:['受浸','今年受浸'],       sub:['小計','合計','總計']},
+  {key:'sundayYP',      label:'主日青職',    exportHeader:'主日\n青職',   cat:['主日'],                 sub:['青職']},
+  {key:'ypHomeOut',     label:'青職家聚出訪', exportHeader:'青職\n家聚\n出訪', cat:['家聚出訪','家聚會出訪'], sub:['青職']},
+  {key:'ypHomeIn',      label:'青職家聚受訪', exportHeader:'青職\n家聚\n受訪', cat:['家聚受訪','家聚會受訪'], sub:['青職']},
+  {key:'ypGroup',       label:'青職排聚',    exportHeader:'青職\n排聚',   cat:['小排','排聚'],          sub:['青職']},
+  {key:'sundayCollege', label:'主日大專',    exportHeader:'主日\n大專',   cat:['主日'],                 sub:['大專','大學']},
+  {key:'collegeHomeOut',label:'大專家聚出訪', exportHeader:'大專\n家聚\n出訪', cat:['家聚出訪','家聚會出訪'], sub:['大專','大學']},
+  {key:'collegeHomeIn', label:'大專家聚受訪', exportHeader:'大專\n家聚\n受訪', cat:['家聚受訪','家聚會受訪'], sub:['大專','大學']},
+  {key:'collegeGroup',  label:'大專排聚',    exportHeader:'大專\n排聚',   cat:['小排','排聚'],          sub:['大專','大學']},
+  {key:'juniorSunday',  label:'國中主日',    exportHeader:'國中\n主日',   cat:['主日'],                 sub:['國中']},
+  {key:'juniorHomeOut', label:'國中家聚出訪', exportHeader:'國中\n家聚\n出訪', cat:['家聚出訪','家聚會出訪'], sub:['國中']},
+  {key:'juniorHomeIn',  label:'國中家聚受訪', exportHeader:'國中\n家聚\n受訪', cat:['家聚受訪','家聚會受訪'], sub:['國中']},
+  {key:'juniorGroup',   label:'國中排聚',    exportHeader:'國中\n排聚',   cat:['小排','排聚'],          sub:['國中']},
+  {key:'seniorSunday',  label:'高中主日',    exportHeader:'高中\n主日',   cat:['主日'],                 sub:['高中']},
+  {key:'seniorHomeOut', label:'高中家聚出訪', exportHeader:'高中\n家聚\n出訪', cat:['家聚出訪','家聚會出訪'], sub:['高中']},
+  {key:'seniorHomeIn',  label:'高中家聚受訪', exportHeader:'高中\n家聚\n受訪', cat:['家聚受訪','家聚會受訪'], sub:['高中']},
+  {key:'seniorGroup',   label:'高中排聚',    exportHeader:'高中\n排聚',   cat:['小排','排聚'],          sub:['高中']},
+];
+
+const SUBCOL_KEYWORDS = ['學齡前','國小','國中','高中','大學','青職','中學','小計'];
+
+// ---------- 工具函式 ----------
+function norm(s){ return (s===null||s===undefined) ? '' : String(s).replace(/\s+/g,'').trim(); }
+function eitherContains(a,b){ if(!a||!b) return false; return a.includes(b) || b.includes(a); }
+
+// ---------- 狀態 ----------
+let state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{} };
+
+// ---------- 解析工作表：找出二層表頭 & 資料列 ----------
+function parseSheet(rows){
+  let subRowIdx = -1;
+  const scanLimit = Math.min(rows.length, 15);
+  for (let i=0;i<scanLimit;i++){
+    const row = rows[i] || [];
+    let hit = 0;
+    for (const cell of row){ if (SUBCOL_KEYWORDS.includes(norm(cell))) hit++; }
+    if (hit >= 3){ subRowIdx = i; break; }
+  }
+
+  const columns = []; // { index, category, subcategory }
+  let dataStart;
+
+  if (subRowIdx >= 0){
+    let catRowIdx = subRowIdx - 1;
+    const catRow = rows[catRowIdx] || [];
+    const subRow = rows[subRowIdx] || [];
+    const maxCol = Math.max(catRow.length, subRow.length);
+    let lastCat = '';
+    for (let c=1;c<maxCol;c++){
+      const catCell = catRow[c];
+      if (catCell !== null && catCell !== undefined && String(catCell).trim() !== '') lastCat = String(catCell).trim();
+      const subCell = subRow[c];
+      if ((subCell !== null && subCell !== undefined && String(subCell).trim() !== '') || lastCat){
+        columns.push({ index:c, category:lastCat, subcategory: subCell!==null&&subCell!==undefined? String(subCell).trim() : '' });
+      }
+    }
+    dataStart = subRowIdx + 1;
+  } else {
+    // fallback：單層表頭，找第一列有兩個以上非空文字儲存格的當表頭
+    let headerRowIdx = -1;
+    for (let i=0;i<scanLimit;i++){
+      const row = rows[i] || [];
+      const textCells = row.filter(c => c!==null && c!==undefined && String(c).trim()!=='' && isNaN(Number(c)));
+      if (textCells.length >= 2){ headerRowIdx = i; break; }
+    }
+    if (headerRowIdx === -1) headerRowIdx = 0;
+    const headerRow = rows[headerRowIdx] || [];
+    for (let c=1;c<headerRow.length;c++){
+      const cell = headerRow[c];
+      if (cell!==null && cell!==undefined && String(cell).trim()!==''){
+        columns.push({ index:c, category:String(cell).trim(), subcategory:null });
+      }
+    }
+    dataStart = headerRowIdx + 1;
+  }
+
+  // 資料列：從 dataStart 開始，第一欄非空即視為一筆資料，直到連續空列
+  const dataRows = [];
+  let blankStreak = 0;
+  for (let r=dataStart; r<rows.length; r++){
+    const row = rows[r] || [];
+    const label = row[0];
+    const hasLabel = label!==null && label!==undefined && String(label).trim()!=='';
+    const hasAny = row.some(c=>c!==null && c!==undefined && String(c).trim()!=='');
+    if (!hasAny){ blankStreak++; if (blankStreak>=2) break; continue; }
+    blankStreak = 0;
+    if (hasLabel) dataRows.push(row);
+  }
+
+  // 名稱欄表頭（col0）：抓 subRow 或 headerRow 的第一格文字，找不到就用預設
+  let nameHeader = '名稱';
+  const headerSrcRow = subRowIdx>=0 ? (rows[subRowIdx-2]||rows[subRowIdx-1]) : rows[0];
+  if (headerSrcRow && headerSrcRow[0] && String(headerSrcRow[0]).trim()) nameHeader = String(headerSrcRow[0]).trim();
+
+  return { columns, rows: dataRows, nameHeader };
+}
+
+// ---------- 依名稱自動對應 target -> source 欄位 index ----------
+function autoMatch(target, columns){
+  // 1) 結構化比對：cat + sub 都要吻合
+  if (target.sub){
+    for (const col of columns){
+      const c = norm(col.category);
+      const s = norm(col.subcategory || '');
+      const catHit = target.cat.some(a => eitherContains(norm(a), c));
+      const subHit = target.sub.some(a => eitherContains(norm(a), s));
+      if (catHit && subHit) return col.index;
+    }
+  }
+  // 2) 單層/直接比對：欄位沒有拆年齡層的情況（subcategory 為 null 或空）
+  for (const col of columns){
+    if (col.subcategory) continue;
+    const c = norm(col.category);
+    const candidates = [target.label, ...target.cat];
+    if (candidates.some(cand => eitherContains(norm(cand), c))) return col.index;
+  }
+  return -1;
+}
+
+function buildMapping(columns){
+  const mapping = {};
+  for (const t of TARGET_COLUMNS) mapping[t.key] = autoMatch(t, columns);
+  return mapping;
+}
+
+function colLabel(col){
+  if (!col) return '(空白，不對應)';
+  return col.subcategory ? `${col.category} / ${col.subcategory}` : col.category;
+}
+
+// ---------- 畫面渲染 ----------
+function renderMapCard(){
+  const list = document.getElementById('mapList');
+  list.innerHTML = '';
+  let missCount = 0;
+  for (const t of TARGET_COLUMNS){
+    const matchedIdx = state.mapping[t.key];
+    if (matchedIdx === -1) missCount++;
+    const row = document.createElement('div');
+    row.className = 'maprow';
+    const sel = document.createElement('select');
+    const blankOpt = document.createElement('option');
+    blankOpt.value = -1; blankOpt.textContent = '(空白，不對應)';
+    sel.appendChild(blankOpt);
+    for (const col of state.columns){
+      const opt = document.createElement('option');
+      opt.value = col.index;
+      opt.textContent = colLabel(col);
+      if (col.index === matchedIdx) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    if (matchedIdx === -1) blankOpt.selected = true;
+    sel.addEventListener('change', () => {
+      state.mapping[t.key] = Number(sel.value);
+      renderPreview();
+      renderMapBadgeOnly();
+    });
+    row.innerHTML = `<div class="map-label">${t.label}</div><div class="map-arrow">→</div>`;
+    const selWrap = document.createElement('div');
+    selWrap.className = 'map-sel';
+    selWrap.appendChild(sel);
+    row.appendChild(selWrap);
+    list.appendChild(row);
+  }
+  renderMapBadgeOnly();
+  document.getElementById('mapCard').style.display = 'block';
+}
+
+function renderMapBadgeOnly(){
+  const missCount = TARGET_COLUMNS.filter(t => state.mapping[t.key] === -1).length;
+  const badge = document.getElementById('mapBadge');
+  if (missCount === 0){
+    badge.innerHTML = `<span class="badge ok">✓ 全部 ${TARGET_COLUMNS.length} 欄已對應</span>`;
+  } else {
+    badge.innerHTML = `<span class="badge miss">⚠ ${missCount} 欄找不到來源資料</span>`;
+  }
+}
+
+function computeOutputRows(){
+  const header = [state.nameHeader, ...TARGET_COLUMNS.map(t => t.exportHeader)];
+  const dataRows = state.rows.map(row => {
+    const name = row[0];
+    const vals = TARGET_COLUMNS.map(t => {
+      const idx = state.mapping[t.key];
+      if (idx === -1 || idx === undefined) return '';
+      const v = row[idx];
+      return (v===null || v===undefined) ? '' : v;
+    });
+    return [name, ...vals];
+  });
+  return { header, dataRows };
+}
+
+function renderPreview(){
+  const { header, dataRows } = computeOutputRows();
+  const wrap = document.getElementById('previewTable');
+  let html = '<table><thead><tr>';
+  for (const h of header) html += `<th>${h}</th>`;
+  html += '</tr></thead><tbody>';
+  for (const row of dataRows){
+    html += '<tr>';
+    row.forEach((v,i) => {
+      html += i===0 ? `<td class="name">${v}</td>` : `<td>${v}</td>`;
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  document.getElementById('previewCard').style.display = 'block';
+  document.getElementById('emptyState').style.display = 'none';
+}
+
+// ---------- 檔案處理 ----------
+function loadWorkbookRows(wb, sheetName){
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null });
+  const parsed = parseSheet(rows);
+  state.sheetName = sheetName;
+  state.columns = parsed.columns;
+  state.rows = parsed.rows;
+  state.nameHeader = parsed.nameHeader;
+  state.mapping = buildMapping(parsed.columns);
+  document.getElementById('detectHint').textContent =
+    `已辨識出 ${parsed.columns.length} 個來源欄位、${parsed.rows.length} 筆資料列（工作表：${sheetName}）`;
+  renderMapCard();
+  renderPreview();
+}
+
+function handleFile(file){
+  document.getElementById('fname').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type:'array' });
+    state.workbook = wb;
+    const sheetSel = document.getElementById('sheetSel');
+    const picker = document.getElementById('sheetPicker');
+    picker.innerHTML = '';
+    wb.SheetNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      picker.appendChild(opt);
+    });
+    sheetSel.style.display = wb.SheetNames.length > 1 ? 'flex' : 'none';
+    loadWorkbookRows(wb, wb.SheetNames[0]);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+document.getElementById('sheetPicker').addEventListener('change', (e) => {
+  loadWorkbookRows(state.workbook, e.target.value);
+});
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  fileInput.value = '';
+  document.getElementById('fname').textContent = '';
+  document.getElementById('sheetSel').style.display = 'none';
+  document.getElementById('detectHint').textContent = '';
+  document.getElementById('mapCard').style.display = 'none';
+  document.getElementById('previewCard').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+  state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{} };
+});
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const { header, dataRows } = computeOutputRows();
+  const aoa = [header, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = header.map(() => ({ wch: 8 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '週報表');
+  const today = new Date();
+  const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb, `週報表_${y}${m}${d}.xlsx`);
+});
+
+// ---------- PWA ----------
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

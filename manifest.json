@@ -1,0 +1,18 @@
+{
+  "name": "週報表產生器",
+  "short_name": "週報表",
+  "description": "匯入原始報表 Excel，依中文項目名稱自動對應，產生規定格式的週報表",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#2563eb",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
