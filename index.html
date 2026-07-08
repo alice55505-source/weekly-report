@@ -15,7 +15,6 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100dvh}
 .hdr{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:16px 20px 14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(37,99,235,.3)}
 .hdr h1{font-size:19px;font-weight:700;letter-spacing:-.3px}
-.hdr-sub{font-size:12.5px;opacity:.8;margin-top:2px}
 .wrap{max-width:1100px;margin:0 auto;padding:16px}
 .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:16px}
 .card h2{font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -50,7 +49,6 @@ td.name{text-align:left;font-weight:600;white-space:nowrap}
 
 <div class="hdr">
   <h1>📊 週報表產生器</h1>
-  <div class="hdr-sub">匯入原始 Excel，依中文項目名稱自動對應成規定格式週報表</div>
 </div>
 
 <div class="wrap">
@@ -73,7 +71,7 @@ td.name{text-align:left;font-weight:600;white-space:nowrap}
     <h2>② 新表格預覽</h2>
     <div class="tablewrap"><div id="previewTable"></div></div>
     <div class="btnrow">
-      <button class="btn btnp" id="downloadBtn">⬇️ 下載週報表 Excel</button>
+      <button class="btn btnp" id="copyBtn">📋 複製數字</button>
       <button class="btn btns" id="resetBtn">🔄 重新匯入</button>
     </div>
   </div>
@@ -229,13 +227,16 @@ function buildMapping(columns){
 // ---------- 畫面渲染 ----------
 function computeOutputRows(){
   const header = [state.nameHeader, ...TARGET_COLUMNS.map(t => t.exportHeader)];
-  const dataRows = state.rows.map(row => {
+  let sourceRows = state.rows.filter(row => norm(row[0]).includes('合計'));
+  if (sourceRows.length === 0) sourceRows = state.rows;
+  const dataRows = sourceRows.map(row => {
     const name = row[0];
     const vals = TARGET_COLUMNS.map(t => {
       const idx = state.mapping[t.key];
-      if (idx === -1 || idx === undefined) return '';
+      const empty = t.key === 'groupCount' ? '-' : '';
+      if (idx === -1 || idx === undefined) return empty;
       const v = row[idx];
-      return (v===null || v===undefined) ? '' : v;
+      return (v===null || v===undefined) ? empty : v;
     });
     return [name, ...vals];
   });
@@ -335,16 +336,32 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{} };
 });
 
-document.getElementById('downloadBtn').addEventListener('click', () => {
-  const { header, dataRows } = computeOutputRows();
-  const aoa = [header, ...dataRows];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = header.map(() => ({ wch: 8 }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '週報表');
-  const today = new Date();
-  const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
-  XLSX.writeFile(wb, `週報表_${y}${m}${d}.xlsx`);
+async function copyToClipboard(text){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    try { await navigator.clipboard.writeText(text); return true; } catch(e){}
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch(e){ return false; }
+}
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const { dataRows } = computeOutputRows();
+  if (!dataRows.length) return;
+  const text = dataRows.map(row => row.slice(1).join('\t')).join('\n');
+  const ok = await copyToClipboard(text);
+  const btn = document.getElementById('copyBtn');
+  const original = btn.textContent;
+  btn.textContent = ok ? '✅ 已複製數字' : '⚠️ 複製失敗，請手動選取';
+  setTimeout(() => { btn.textContent = original; }, 1500);
 });
 
 // ---------- PWA ----------
