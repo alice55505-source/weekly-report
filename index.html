@@ -233,7 +233,7 @@ function computeOutputRows(){
     const name = row[0];
     const vals = TARGET_COLUMNS.map(t => {
       const idx = state.mapping[t.key];
-      const empty = t.key === 'groupCount' ? '-' : '';
+      const empty = t.key === 'groupCount' ? 0 : '';
       if (idx === -1 || idx === undefined) return empty;
       const v = row[idx];
       return (v===null || v===undefined) ? empty : v;
@@ -356,7 +356,7 @@ async function copyToClipboard(text){
 document.getElementById('copyBtn').addEventListener('click', async () => {
   const { dataRows } = computeOutputRows();
   if (!dataRows.length) return;
-  const text = dataRows.map(row => row.slice(1).map(v => v === '-' ? '' : v).join('\t')).join('\n');
+  const text = dataRows.map(row => row.slice(1).join('\t')).join('\n');
   const ok = await copyToClipboard(text);
   const btn = document.getElementById('copyBtn');
   const original = btn.textContent;
