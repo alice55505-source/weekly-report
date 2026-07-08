@@ -40,15 +40,6 @@ th,td{border:1px solid var(--bd);padding:6px 8px;text-align:center;white-space:p
 th{background:#f8fafc;font-weight:700;position:sticky;top:0}
 tbody tr:nth-child(even){background:#fafafa}
 td.name{text-align:left;font-weight:600;white-space:nowrap}
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
-.badge.ok{background:#d1fae5;color:#065f46}
-.badge.miss{background:#fee2e2;color:#991b1b}
-.maprow{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:13px}
-.maprow:last-child{border-bottom:none}
-.map-label{flex:0 0 140px;font-weight:600;white-space:pre-line;line-height:1.25}
-.map-arrow{color:var(--mu);flex:0 0 16px}
-.map-sel{flex:1}
-.map-sel select{width:100%;padding:7px 9px;border-radius:8px;border:1.5px solid var(--bd);font-size:13px;background:#fff}
 .empty{text-align:center;padding:40px 20px;color:var(--mu)}
 .eico{font-size:44px;margin-bottom:10px}
 .hint{font-size:12.5px;color:var(--mu);margin-top:8px;line-height:1.5}
@@ -78,14 +69,8 @@ td.name{text-align:left;font-weight:600;white-space:nowrap}
     <div class="hint" id="detectHint"></div>
   </div>
 
-  <div class="card" id="mapCard" style="display:none">
-    <h2>② 欄位對應結果 <span id="mapBadge"></span></h2>
-    <div class="hint">系統依中文名稱自動對應，找不到的欄位會標紅，可用下拉選單手動調整。</div>
-    <div id="mapList" style="margin-top:10px"></div>
-  </div>
-
   <div class="card" id="previewCard" style="display:none">
-    <h2>③ 新表格預覽</h2>
+    <h2>② 新表格預覽</h2>
     <div class="tablewrap"><div id="previewTable"></div></div>
     <div class="btnrow">
       <button class="btn btnp" id="downloadBtn">⬇️ 下載週報表 Excel</button>
@@ -241,59 +226,7 @@ function buildMapping(columns){
   return mapping;
 }
 
-function colLabel(col){
-  if (!col) return '(空白，不對應)';
-  return col.subcategory ? `${col.category} / ${col.subcategory}` : col.category;
-}
-
 // ---------- 畫面渲染 ----------
-function renderMapCard(){
-  const list = document.getElementById('mapList');
-  list.innerHTML = '';
-  let missCount = 0;
-  for (const t of TARGET_COLUMNS){
-    const matchedIdx = state.mapping[t.key];
-    if (matchedIdx === -1) missCount++;
-    const row = document.createElement('div');
-    row.className = 'maprow';
-    const sel = document.createElement('select');
-    const blankOpt = document.createElement('option');
-    blankOpt.value = -1; blankOpt.textContent = '(空白，不對應)';
-    sel.appendChild(blankOpt);
-    for (const col of state.columns){
-      const opt = document.createElement('option');
-      opt.value = col.index;
-      opt.textContent = colLabel(col);
-      if (col.index === matchedIdx) opt.selected = true;
-      sel.appendChild(opt);
-    }
-    if (matchedIdx === -1) blankOpt.selected = true;
-    sel.addEventListener('change', () => {
-      state.mapping[t.key] = Number(sel.value);
-      renderPreview();
-      renderMapBadgeOnly();
-    });
-    row.innerHTML = `<div class="map-label">${t.label}</div><div class="map-arrow">→</div>`;
-    const selWrap = document.createElement('div');
-    selWrap.className = 'map-sel';
-    selWrap.appendChild(sel);
-    row.appendChild(selWrap);
-    list.appendChild(row);
-  }
-  renderMapBadgeOnly();
-  document.getElementById('mapCard').style.display = 'block';
-}
-
-function renderMapBadgeOnly(){
-  const missCount = TARGET_COLUMNS.filter(t => state.mapping[t.key] === -1).length;
-  const badge = document.getElementById('mapBadge');
-  if (missCount === 0){
-    badge.innerHTML = `<span class="badge ok">✓ 全部 ${TARGET_COLUMNS.length} 欄已對應</span>`;
-  } else {
-    badge.innerHTML = `<span class="badge miss">⚠ ${missCount} 欄找不到來源資料</span>`;
-  }
-}
-
 function computeOutputRows(){
   const header = [state.nameHeader, ...TARGET_COLUMNS.map(t => t.exportHeader)];
   const dataRows = state.rows.map(row => {
@@ -340,8 +273,8 @@ function loadWorkbookRows(wb, sheetName){
   state.mapping = buildMapping(parsed.columns);
   document.getElementById('detectHint').textContent =
     `已辨識出 ${parsed.columns.length} 個來源欄位、${parsed.rows.length} 筆資料列（工作表：${sheetName}）`;
-  renderMapCard();
   renderPreview();
+  document.getElementById('previewCard').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 function showError(msg){
@@ -397,7 +330,6 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('fname').textContent = '';
   document.getElementById('sheetSel').style.display = 'none';
   document.getElementById('detectHint').textContent = '';
-  document.getElementById('mapCard').style.display = 'none';
   document.getElementById('previewCard').style.display = 'none';
   document.getElementById('emptyState').style.display = 'block';
   state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{} };
