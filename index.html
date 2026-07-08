@@ -74,6 +74,7 @@ td.name{text-align:left;font-weight:600;white-space:nowrap}
       <button class="btn btnp" id="copyBtn">📋 複製數字</button>
       <button class="btn btns" id="resetBtn">🔄 重新匯入</button>
     </div>
+    <div class="hint">複製後，貼到週報表「數據輸入區」該區的「主日」那一格，會自動對齊到「高中排聚」，中間空白欄位不用擔心。</div>
   </div>
 
   <div class="empty" id="emptyState">
@@ -119,6 +120,20 @@ const TARGET_COLUMNS = [
 ];
 
 const SUBCOL_KEYWORDS = ['學齡前','國小','國中','高中','大學','青職','中學','小計'];
+
+// 複製數字時，對應到目標週報表範本「主日～高中排聚」這 26 欄之間實際存在的空白間隔欄
+// （範本裡欄與欄中間常常空 1～2 欄沒有標題，直接連續貼會整排錯位，所以複製時要照樣補空白）
+const PASTE_GAPS = [2,1,0,1,1,0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0];
+
+function padForTemplate(values){
+  const out = [values[0]];
+  for (let i=1;i<values.length;i++){
+    const gap = PASTE_GAPS[i-1] || 0;
+    for (let g=0; g<gap; g++) out.push('');
+    out.push(values[i]);
+  }
+  return out;
+}
 
 // ---------- 工具函式 ----------
 function norm(s){ return (s===null||s===undefined) ? '' : String(s).replace(/\s+/g,'').trim(); }
@@ -372,7 +387,7 @@ async function copyToClipboard(text, html){
 document.getElementById('copyBtn').addEventListener('click', async () => {
   const { dataRows } = computeOutputRows();
   if (!dataRows.length) return;
-  const rows = dataRows.map(row => row.slice(1));
+  const rows = dataRows.map(row => padForTemplate(row.slice(1)));
   const text = rows.map(r => r.join('\t')).join('\n');
   const html = '<table>' + rows.map(r => '<tr>' + r.map(v => `<td>${escapeHtml(v)}</td>`).join('') + '</tr>').join('') + '</table>';
   const ok = await copyToClipboard(text, html);
