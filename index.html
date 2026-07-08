@@ -356,7 +356,7 @@ async function copyToClipboard(text){
 document.getElementById('copyBtn').addEventListener('click', async () => {
   const { dataRows } = computeOutputRows();
   if (!dataRows.length) return;
-  const text = dataRows.map(row => row.slice(1).join('\t')).join('\n');
+  const text = dataRows.map(row => row.slice(1).map(v => v === '-' ? '' : v).join('\t')).join('\n');
   const ok = await copyToClipboard(text);
   const btn = document.getElementById('copyBtn');
   const original = btn.textContent;
