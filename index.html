@@ -344,23 +344,38 @@ function loadWorkbookRows(wb, sheetName){
   renderPreview();
 }
 
+function showError(msg){
+  const hint = document.getElementById('detectHint');
+  hint.innerHTML = `<span style="color:var(--d);font-weight:600">⚠ ${msg}</span>`;
+}
+
 function handleFile(file){
+  if (typeof XLSX === 'undefined'){
+    showError('Excel 解析套件載入失敗（lib/xlsx.full.min.js 沒有讀到），請確認是用網址開啟這個工具，而不是直接雙擊 index.html 或用檔案預覽。');
+    return;
+  }
   document.getElementById('fname').textContent = file.name;
+  document.getElementById('detectHint').textContent = '讀取中…';
   const reader = new FileReader();
+  reader.onerror = () => showError('讀取檔案失敗，請重新選擇檔案。');
   reader.onload = (e) => {
-    const data = new Uint8Array(e.target.result);
-    const wb = XLSX.read(data, { type:'array' });
-    state.workbook = wb;
-    const sheetSel = document.getElementById('sheetSel');
-    const picker = document.getElementById('sheetPicker');
-    picker.innerHTML = '';
-    wb.SheetNames.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      picker.appendChild(opt);
-    });
-    sheetSel.style.display = wb.SheetNames.length > 1 ? 'flex' : 'none';
-    loadWorkbookRows(wb, wb.SheetNames[0]);
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type:'array' });
+      state.workbook = wb;
+      const sheetSel = document.getElementById('sheetSel');
+      const picker = document.getElementById('sheetPicker');
+      picker.innerHTML = '';
+      wb.SheetNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        picker.appendChild(opt);
+      });
+      sheetSel.style.display = wb.SheetNames.length > 1 ? 'flex' : 'none';
+      loadWorkbookRows(wb, wb.SheetNames[0]);
+    } catch (err){
+      showError('解析 Excel 失敗：' + err.message);
+    }
   };
   reader.readAsArrayBuffer(file);
 }
