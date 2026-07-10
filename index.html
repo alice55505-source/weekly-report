@@ -233,9 +233,16 @@ function autoMatch(target, columns){
   return -1;
 }
 
+// 「小排」欄位不直接抄小排_小計，而是要扣掉學齡前、國小人數，這裡額外比對這兩欄的來源欄位
+const EXTRA_MATCH_TARGETS = {
+  smallGroupPreschool:   { label:'小排_學齡前', cat:['小排'], sub:['學齡前'] },
+  smallGroupElementary:  { label:'小排_國小',   cat:['小排'], sub:['國小'] },
+};
+
 function buildMapping(columns){
   const mapping = {};
   for (const t of TARGET_COLUMNS) mapping[t.key] = autoMatch(t, columns);
+  for (const k in EXTRA_MATCH_TARGETS) mapping[k] = autoMatch(EXTRA_MATCH_TARGETS[k], columns);
   return mapping;
 }
 
@@ -247,6 +254,17 @@ function computeOutputRows(){
   const dataRows = sourceRows.map(row => {
     const name = row[0];
     const vals = TARGET_COLUMNS.map(t => {
+      if (t.key === 'smallGroup'){
+        const subtotalIdx = state.mapping.smallGroup;
+        if (subtotalIdx === -1 || subtotalIdx === undefined) return '';
+        const toNum = (idx) => {
+          if (idx === -1 || idx === undefined) return 0;
+          const v = row[idx];
+          const n = Number(v);
+          return (v===null || v===undefined || v==='' || isNaN(n)) ? 0 : n;
+        };
+        return toNum(subtotalIdx) - toNum(state.mapping.smallGroupPreschool) - toNum(state.mapping.smallGroupElementary);
+      }
       const idx = state.mapping[t.key];
       const empty = t.key === 'groupCount' ? 0 : '';
       if (idx === -1 || idx === undefined) return empty;
