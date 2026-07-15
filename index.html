@@ -140,7 +140,7 @@ function norm(s){ return (s===null||s===undefined) ? '' : String(s).replace(/\s+
 function eitherContains(a,b){ if(!a||!b) return false; return a.includes(b) || b.includes(a); }
 
 // ---------- 狀態 ----------
-let state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{} };
+let state = { workbook:null, sheetName:null, columns:[], rows:[], nameHeader:'名稱', mapping:{}, labelColCount:1 };
 
 // ---------- 解析工作表：找出二層表頭 & 資料列 ----------
 function parseSheet(rows){
@@ -190,13 +190,16 @@ function parseSheet(rows){
     dataStart = headerRowIdx + 1;
   }
 
-  // 資料列：從 dataStart 開始，第一欄非空即視為一筆資料，直到連續空列
+  // 名稱欄可能不只一欄（例如「大區」+「區」），有資料的欄位一律落在第一個類別欄之前
+  const labelColCount = columns.length ? columns[0].index : 1;
+
+  // 資料列：從 dataStart 開始，任一名稱欄非空即視為一筆資料，直到連續空列
   const dataRows = [];
   let blankStreak = 0;
   for (let r=dataStart; r<rows.length; r++){
     const row = rows[r] || [];
-    const label = row[0];
-    const hasLabel = label!==null && label!==undefined && String(label).trim()!=='';
+    const labelCells = row.slice(0, labelColCount);
+    const hasLabel = labelCells.some(c => c!==null && c!==undefined && String(c).trim()!=='');
     const hasAny = row.some(c=>c!==null && c!==undefined && String(c).trim()!=='');
     if (!hasAny){ blankStreak++; if (blankStreak>=2) break; continue; }
     blankStreak = 0;
@@ -208,7 +211,7 @@ function parseSheet(rows){
   const headerSrcRow = subRowIdx>=0 ? (rows[subRowIdx-2]||rows[subRowIdx-1]) : rows[0];
   if (headerSrcRow && headerSrcRow[0] && String(headerSrcRow[0]).trim()) nameHeader = String(headerSrcRow[0]).trim();
 
-  return { columns, rows: dataRows, nameHeader };
+  return { columns, rows: dataRows, nameHeader, labelColCount };
 }
 
 // ---------- 依名稱自動對應 target -> source 欄位 index ----------
@@ -249,7 +252,7 @@ function buildMapping(columns){
 // ---------- 畫面渲染 ----------
 function computeOutputRows(){
   const header = [state.nameHeader, ...TARGET_COLUMNS.map(t => t.exportHeader)];
-  let sourceRows = state.rows.filter(row => norm(row[0]).includes('合計'));
+  let sourceRows = state.rows.filter(row => row.slice(0, state.labelColCount).some(c => norm(c).includes('合計')));
   if (sourceRows.length === 0) sourceRows = state.rows;
   const dataRows = sourceRows.map(row => {
     const name = '合計';
@@ -304,6 +307,7 @@ function loadWorkbookRows(wb, sheetName){
   state.columns = parsed.columns;
   state.rows = parsed.rows;
   state.nameHeader = parsed.nameHeader;
+  state.labelColCount = parsed.labelColCount;
   state.mapping = buildMapping(parsed.columns);
   document.getElementById('detectHint').textContent =
     `已辨識出 ${parsed.columns.length} 個來源欄位、${parsed.rows.length} 筆資料列（工作表：${sheetName}）`;
