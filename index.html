@@ -252,7 +252,7 @@ function computeOutputRows(){
   let sourceRows = state.rows.filter(row => norm(row[0]).includes('合計'));
   if (sourceRows.length === 0) sourceRows = state.rows;
   const dataRows = sourceRows.map(row => {
-    const name = row[0];
+    const name = '合計';
     const vals = TARGET_COLUMNS.map(t => {
       if (t.key === 'smallGroup'){
         const subtotalIdx = state.mapping.smallGroup;
