@@ -148,9 +148,9 @@ function parseSheet(rows){
   const scanLimit = Math.min(rows.length, 15);
   for (let i=0;i<scanLimit;i++){
     const row = rows[i] || [];
-    let hit = 0;
-    for (const cell of row){ if (SUBCOL_KEYWORDS.includes(norm(cell))) hit++; }
-    if (hit >= 3){ subRowIdx = i; break; }
+    const hitKinds = new Set();
+    for (const cell of row){ const c = norm(cell); if (SUBCOL_KEYWORDS.includes(c)) hitKinds.add(c); }
+    if (hitKinds.size >= 3){ subRowIdx = i; break; }
   }
 
   const columns = []; // { index, category, subcategory }
